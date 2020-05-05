@@ -15,6 +15,7 @@ from flask_wtf import Form
 from forms import *
 import datetime
 import sys
+from sqlalchemy import desc
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -103,7 +104,9 @@ app.jinja_env.filters['datetime'] = format_datetime
 
 @app.route('/')
 def index():
-  return render_template('pages/home.html')
+  artists = Artist.query.order_by(Artist.id.desc()).limit(10).all()
+  venues = Venue.query.order_by(Venue.id.desc()).limit(10).all()
+  return render_template('pages/home.html', artists = artists, venues = venues)
 
 
 #  Venues
@@ -361,7 +364,7 @@ def create_venue_submission():
     abort(400)
   else:
     print(body)
-    return redirect(url_for('create_venue_form'))
+    return redirect(url_for('index'))
 
 
 # on successful db insert, flash success
@@ -715,7 +718,7 @@ def create_artist_submission():
   # on successful db insert, flash success
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-  return render_template('pages/home.html')
+  return redirect(url_for('index'))
 
 
 #  Shows

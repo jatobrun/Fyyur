@@ -22,4 +22,37 @@
 		<img id="front-splash" src="{{ url_for('static',filename='img/front-splash.jpg') }}" alt="Front Photo of Musical Band" />
 	</div>
 </div>
+<div class = 'row'>
+	<div class = 'col-md-6' style = 'text-align: center; display: flex; flex-wrap: wrap; justify-content: space-around;'>
+		<h3 style = 'text-align: center; width: 400px;'>Top 10 New Artists</h3>
+		{% for artist in artists%}
+		
+		<div class="card" style = 'height: 100px; margin-bottom: 10px; text-align: center; background-color: #e6e6e6; border-radius: 20px; font-family: inherit; width: 200px;'>
+			<div class="card-body">
+			  <h5 class="card-title">Name: {{artist.name}}</h5>
+			  <p class="card-text">Id: {{artist.id}}</p>
+
+			  <a href="/artists/{{ artist.id }}" class="btn btn-primary">GO To Profile</a>
+			</div>
+		  </div>
+			
+		{% endfor %}
+	</div>
+	<div class = 'col-md-6' style = 'text-align: center; display: flex; flex-wrap: wrap; justify-content: space-around;'>
+		<h3 style = 'text-align: center; width: 400px;'>Top 10 New Venues</h3>
+		{% for venue in venues%}
+		
+		<div class="card" style = 'height: 100px; margin-bottom: 10px; text-align: center; background-color: #e6e6e6; border-radius: 20px; font-family: inherit; width: 200px;'>
+			<div class="card-body">
+			  <h5 class="card-title">Name: {{venue.name}}</h5>
+			  <p class="card-text">Id: {{venue.id}}</p>
+
+			  <a href="/artists/{{ venue.id }}" class="btn btn-primary">Go To Venue</a>
+			</div>
+		  </div>
+			
+		{% endfor %}
+
+	</div>
+</div>
 {% endblock %}
