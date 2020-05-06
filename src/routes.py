@@ -1,89 +1,28 @@
 #----------------------------------------------------------------------------#
 # Imports
 #----------------------------------------------------------------------------#
-
+from sqlalchemy.sql import func
 import json
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for, abort, jsonify
-from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-import logging
-from logging import Formatter, FileHandler
+from flask import (Flask, render_template, 
+                  request, Response, flash,
+                  redirect, url_for, abort, 
+                  jsonify)
 from flask_wtf import Form
-from forms import *
+from src.forms import *
 import datetime
 import sys
 from sqlalchemy import desc
+from src.models import Venue, Artist, Show
+from src import app, db
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
 
-app = Flask(__name__)
-moment = Moment(app)
-app.config.from_object('config')
-db = SQLAlchemy(app)
-
 # TODO: connect to a local postgresql database
-migrate = Migrate(app, db)
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(200))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    shows = db.relationship('Show', backref='venues', lazy = True)
 
 
-    def __repr__(self):
-      return f'Venue: {self.id} {self.name} {self.state} {self.city}'
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(200))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    shows = db.relationship('Show', backref='artist', lazy = True)
-
-    def __repr__(self):
-      return f'Venue: {self.id} {self.name} {self.state} {self.city}'
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-class Show(db.Model):
-    __tablename__ = 'Show'
-    id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.DateTime)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable = False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable = False)
-
-    def __repr__(self):
-      return f'Venue: {self.id} {self.date} {self.venue_id} {self.artist_id}'
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
@@ -172,7 +111,7 @@ def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  search_term = request.form['search_term']
+  search = request.form['search_term']
   response={
     "count": 1,
     "data": [{
@@ -181,14 +120,20 @@ def search_venues():
       "num_upcoming_shows": 0,
     }]
   }
-  search = Venue.query.filter(Venue.name.ilike(f'%{search_term}%'))
-  count = Venue.query.filter(Venue.name.ilike(f'%{search_term}%')).count()
-  response = {'count': count, 'data': []}
-  for row in search:
-    element = {'id': row.id, 'name': row.name,
-              'num_shows': Show.query.filter(Show.date > str(datetime.datetime.now())).filter(Show.venue_id == row.id).count()
-              }
-    response['data'].append(element)
+  current_time = datetime.datetime.now()
+
+  sub_query = db.session.query(Show.venue_id, func.coalesce(func.count('*'), 0).label('num_upcoming_shows')). \
+        filter(Show.date > current_time).group_by(Show.venue_id).subquery()
+
+  result = db.session.query(Venue.id.label('id'), Venue.name.label('name'), sub_query.c.num_upcoming_shows). \
+        outerjoin(sub_query, Venue.id == sub_query.c.venue_id).filter(Venue.name.ilike(f'%{search}%')).order_by(Venue.name)
+
+  data = []
+  for elem in result:
+    data.append({"id": elem.id, "name": elem.name, "num_upcoming_shows": elem.num_upcoming_shows})
+
+  response = {"count": result.count(), "data": data}
+
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/venues/<int:venue_id>')
@@ -826,23 +771,6 @@ def server_error(error):
     return render_template('errors/500.html'), 500
 
 
-if not app.debug:
-    file_handler = FileHandler('error.log')
-    file_handler.setFormatter(
-        Formatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
-    )
-    app.logger.setLevel(logging.INFO)
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
-    app.logger.info('errors')
-
-#----------------------------------------------------------------------------#
-# Launch.
-#----------------------------------------------------------------------------#
-
-# Default port:
-if __name__ == '__main__':
-    app.run()
 
 # Or specify port manually:
 '''
